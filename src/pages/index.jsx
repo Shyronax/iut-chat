@@ -7,8 +7,12 @@ import Input from "@/components/input/Input";
 import Commands from "@/components/commands/Commands";
 import s from "@/styles/index.module.scss";
 import Notification from "@/components/notification/Notification";
+import UserList from "@/components/userlist/UserList";
+import Message from "@/components/message/Message";
 
 const Home = () => {
+  const [channel, setChannel] = useState();
+  const [users, setUsers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState();
   const viewerRef = useRef();
@@ -21,6 +25,8 @@ const Home = () => {
     localStorage.setItem("sessionID", sessionID);
     // save the ID of the user
     socket.userID = userID;
+
+    localStorage.clear("error");
   };
 
   const onMessage = (message) => {
@@ -50,6 +56,29 @@ const Home = () => {
     localStorage.clear("sessionID");
     localStorage.setItem("error", 200);
     push("/login");
+  };
+
+  const getUsersAtInit = (_users) => {
+    console.log("looking for users at init", _users);
+    setUsers(_users);
+  };
+
+  const onUserConnect = (_user) => {
+    const existingUser = users.find((user) => user.userID === _user.userID);
+
+    if (existingUser) {
+      return;
+    }
+
+    setUsers((currentUsers) => [...currentUsers, _user]);
+  };
+
+  const onUserDisconnect = (_userID) => {
+    const filteredArray = [...users].filter((_user) =>
+      _user.userID !== _userID ? true : false
+    );
+    console.log(filteredArray);
+    setUsers(filteredArray);
   };
 
   const scrollToBottom = () => {
@@ -82,6 +111,50 @@ const Home = () => {
     });
   };
 
+  const onPrivateMessage = ({ content, from, to, username }) => {
+    console.log(content, from, to, username);
+    // check from which user the message came from
+    const userMessagingIndex = users.findIndex(
+      (_user) => _user.userID === from
+    );
+
+    console.log(userMessagingIndex);
+
+    const userMessaging = users.find((_user) => _user.userID === from);
+
+    console.log(userMessaging);
+
+    if (!userMessaging) return;
+
+    userMessaging.messages.push({
+      content,
+      from,
+      to,
+      username: username,
+    });
+
+    if (userMessaging.userID !== channel?.userID) {
+      userMessaging.hasNewMessages = true;
+    }
+
+    const _users = [...users];
+    _users[userMessagingIndex] = userMessaging;
+
+    setUsers(_users);
+  };
+
+  useEffect(() => {
+    socket.on("user connected", onUserConnect);
+    socket.on("user disconnected", onUserDisconnect);
+    socket.on("private message", onPrivateMessage);
+
+    return () => {
+      socket.off("user connected", onUserConnect);
+      socket.off("user disconnected", onUserDisconnect);
+      socket.off("private message", onPrivateMessage);
+    };
+  }, [users]);
+
   useEffect(() => {
     const sessionID = localStorage.getItem("sessionID");
 
@@ -103,6 +176,7 @@ const Home = () => {
     socket.on("session", onSession);
     socket.on("message", onMessage);
     socket.on("messages", getMessagesAtInit);
+    socket.on("users", getUsersAtInit);
     socket.on("disconnect", onConnectionError);
     socket.on("connect_error", onConnectionError);
 
@@ -111,6 +185,7 @@ const Home = () => {
       socket.off("session", onSession);
       socket.off("message", onMessage);
       socket.off("messages", getMessagesAtInit);
+      socket.off("users", getUsersAtInit);
       socket.off("connect_error", onConnectionError);
       socket.disconnect();
     };
@@ -122,7 +197,7 @@ const Home = () => {
 
   return (
     <div>
-      <h1 className="title">Hello</h1>
+      <h1 className="title">Shadow Wizard Money Gang</h1>
 
       {error && (
         <Notification
@@ -134,17 +209,37 @@ const Home = () => {
 
       {/* rend la liste des messages */}
       <div ref={viewerRef} className={s.messages}>
-        {messages.map((message, key) => {
-          return (
-            <div key={key}>
-              {message.username} : {message.content}
-            </div>
-          );
-        })}
+        {channel
+          ? channel.messages.map((message, key) => {
+              return (
+                <Message
+                  key={key}
+                  username={message.username}
+                  content={message.content}
+                  fromSelf={message.from === socket.userID}
+                />
+              );
+            })
+          : messages.map((message, key) => {
+              return (
+                <Message
+                  key={key}
+                  username={message.username}
+                  content={message.content}
+                  fromSelf={message.from === socket.userID}
+                />
+              );
+            })}
       </div>
 
-      <Input />
+      <Input channel={channel} setChannel={setChannel} />
       <Commands />
+      <UserList
+        users={users}
+        setUsers={setUsers}
+        setChannel={setChannel}
+        channel={channel}
+      />
     </div>
   );
 };

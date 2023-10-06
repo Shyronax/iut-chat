@@ -1,0 +1,31 @@
+.userlist {
+  border: solid 1px blue;
+  position: absolute;
+  left: 16px;
+  top: 200px;
+  width: 150px;
+  height: 70vh;
+  row-gap: 16px;
+}
+
+.user {
+  cursor: pointer;
+  padding: 8px;
+  opacity: 0;
+  transform: translateX(-100px);
+
+  &__active {
+    background-color: green;
+    &::after {
+      content: "ouais";
+      padding-left: 1rem;
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  &__notif {
+    background-color: orange;
+  }
+}

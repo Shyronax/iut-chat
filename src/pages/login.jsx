@@ -32,7 +32,7 @@ const Login = () => {
       <input
         ref={inputRef}
         type="text"
-        placeholder="Zidane"
+        placeholder="Elminster"
         onKeyDown={onKeyDown}
       />
 
